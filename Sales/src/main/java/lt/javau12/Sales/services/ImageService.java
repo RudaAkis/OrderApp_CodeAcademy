@@ -1,5 +1,6 @@
 package lt.javau12.Sales.services;
 
+
 import lt.javau12.Sales.models.Goods;
 import lt.javau12.Sales.repositories.GoodsRepository;
 import org.springframework.stereotype.Service;
@@ -7,49 +8,49 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-
 
 @Service
 public class ImageService {
 
     private final GoodsRepository goodsRepository;
 
+    private final String IMAGE_BASE_DESTINATION = "C:/Users/gvida/OneDrive/Desktop/SalesProject/Sales";
+    private final String IMAGE_FOLDER = "/uploads/";
+
     public ImageService(GoodsRepository goodsRepository){
         this.goodsRepository = goodsRepository;
     }
 
+    public byte [] getImageFromFileByGoodsId(Long goodsId) throws IOException {
+        Goods goods = getGoodsById(goodsId);
 
-    public void
-    uploadGoodsImage(Long goodsId, MultipartFile imageFile) throws IOException {
-        // Fetch and update the goods
-        Goods goods = goodsRepository.findById(goodsId)
-                .orElseThrow(() -> new RuntimeException("Goods not found"));
+        String imageFileName = goods.getImagePath();
+        String fullPathToImage = IMAGE_BASE_DESTINATION + IMAGE_FOLDER + imageFileName;
+        File imageFile = new File(fullPathToImage);
+        BufferedImage image = ImageIO.read(imageFile);
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        ImageIO.write(image, "jpg", baos);
+        return baos.toByteArray();
+    }
 
-        // Read the uploaded image as BufferedImage
+    public void uploadAnImage(Long goodsId, MultipartFile imageFile) throws IOException {
+        Goods goods = getGoodsById(goodsId);
+
+        String imageFileName = "goods-"+goodsId+".jpg";
+        String fullPath = IMAGE_BASE_DESTINATION + IMAGE_FOLDER + imageFileName;
+        File file = new File(fullPath);
         BufferedImage bufferedImage = ImageIO.read(imageFile.getInputStream());
-
-        // Convert and save as JPEG regardless of input format
-        String fileName = "goods-" + goodsId + ".jpg";
-        Path uploadPath = Paths.get("src/main/resources/static/uploads", fileName);
-
-        try (OutputStream os = Files.newOutputStream(uploadPath)) {
-            ImageIO.write(bufferedImage, "jpg", os);
-        }
-
-        // Save the relative path to the database
-        goods.setImagePath("uploads/" + fileName);
+        ImageIO.write(bufferedImage, "jpg", file);
+        goods.setImagePath(imageFileName);
         goodsRepository.save(goods);
-
     }
 
-    public String getImagePathForGoods(Long goodsId) {
-        Goods goods = goodsRepository.findById(goodsId)
-                .orElseThrow(() -> new RuntimeException("Goods not found"));
-        return goods.getImagePath();
+    public Goods getGoodsById(Long goodsId){
+        return goodsRepository.findById(goodsId)
+                .orElseThrow(() -> new RuntimeException("Goods was not found by Id" + goodsId));
     }
+
 }

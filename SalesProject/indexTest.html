@@ -1,55 +1,170 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Upload and Display Goods Image</title>
-</head>
-<body>
-    <h2>Upload Image for Good</h2>
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Upload and Display Goods Image</title>
+		<style>
+			.error {
+				color: red;
+				margin-top: 10px;
+			}
+			.success {
+				color: green;
+				margin-top: 10px;
+			}
+			img {
+				margin-top: 10px;
+				border: 1px solid #ddd;
+				padding: 5px;
+				max-width: 300px;
+			}
+			#debugInfo {
+				margin-top: 20px;
+				padding: 10px;
+				background: #f5f5f5;
+				border: 1px solid #ddd;
+				font-family: monospace;
+			}
+		</style>
+	</head>
+	<body>
+		<h2>Upload Image for Good</h2>
 
-    <label for="goodId">Good ID:</label>
-    <input type="number" id="goodId" value="1"><br><br>
+		<label for="goodId">Good ID:</label>
+		<input type="number" id="goodId" value="2" /><br /><br />
 
-    <input type="file" id="imageInput"><br><br>
-    <button onclick="uploadImage()">Upload</button>
+		<input type="file" id="imageInput" accept="image/*" /><br /><br />
+		<button id="buttonToAdd">Upload</button>
 
-    <h2>Uploaded Image:</h2>
-    <img id="uploadedImage" src="" alt="Goods Image" width="200">
+		<h2>Uploaded Image:</h2>
+		<div id="imageContainer">
+			<img
+				id="uploadedImage"
+				alt="Goods Image"
+				width="200"
+				onerror="handleImageError()"
+			/>
+		</div>
+		<div id="status"></div>
+		<div id="debugInfo"></div>
 
-    <script>
-        function uploadImage() {
-            const input = document.getElementById("imageInput");
-            const file = input.files[0];
-            const goodId = document.getElementById("goodId").value;
+		<script>
+			// Function to display debug information
+			function addDebugInfo(message) {
+				const debugDiv = document.getElementById("debugInfo");
+				const timestamp = new Date().toLocaleTimeString();
+				debugDiv.innerHTML += `[${timestamp}] ${message}<br>`;
+			}
 
-            if (!file || !goodId) {
-                alert("Please select a file and enter a Good ID.");
-                return;
-            }
+			// Function to handle image loading errors
+			function handleImageError() {
+				const img = document.getElementById("uploadedImage");
+				const goodId = document.getElementById("goodId").value;
+				document.getElementById(
+					"status"
+				).innerHTML = `<div class="error">Failed to load image for Good ID: ${goodId}. The image might not exist or there might be a CORS issue.</div>`;
+				addDebugInfo(`Image loading failed for: ${img.src}`);
+			}
 
-            const formData = new FormData();
-            formData.append("imageFile", file);  // Make sure this matches the @RequestParam in your controller
+			// Function to load the image for a given goodId
+			function loadImage(goodId) {
+				const statusDiv = document.getElementById("status");
+				statusDiv.innerHTML = "Loading image...";
 
-            // Send the image to the server
-            fetch(`http://localhost:8080/image/${goodId}`, {
-                method: "POST",
-                body: formData
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error("Upload failed");
-                }
-                return response.text();
-            })
-            .then(() => {
-                // After the image is uploaded, fetch and display the image
-                document.getElementById("uploadedImage").src = `http://localhost:8080/uploads/goods-${goodId}.jpg`;
-            })
-            .catch(error => {
-                console.error("Error uploading or fetching image:", error);
-            });
-        }
-    </script>
-</body>
+				const timestamp = new Date().getTime(); // Add timestamp to prevent caching
+				const imageUrl = `http://localhost:8080/image/${goodId}?t=${timestamp}`;
+
+				addDebugInfo(`Attempting to load image from: ${imageUrl}`);
+
+				// Try to fetch the image first to check if it exists
+				fetch(imageUrl)
+					.then((response) => {
+						if (!response.ok) {
+							throw new Error(
+								`Server returned ${response.status}: ${response.statusText}`
+							);
+						}
+						return response;
+					})
+					.then(() => {
+						// If fetch is successful, load the image
+						document.getElementById("uploadedImage").src = imageUrl;
+						statusDiv.innerHTML =
+							'<div class="success">Image loaded successfully</div>';
+					})
+					.catch((error) => {
+						addDebugInfo(`Fetch error: ${error.message}`);
+						statusDiv.innerHTML = `<div class="error">Error fetching image: ${error.message}</div>`;
+						document.getElementById("uploadedImage").src = "";
+					});
+			}
+
+			// Load the image for the initial goodId when the page loads
+			window.onload = function () {
+				addDebugInfo("Page loaded");
+				const goodId = document.getElementById("goodId").value;
+				if (goodId) {
+					loadImage(goodId);
+				}
+
+				// Add event listener to the upload button
+				document
+					.getElementById("buttonToAdd")
+					.addEventListener("click", uploadImage);
+				addDebugInfo("Event listeners initialized");
+			};
+
+			function uploadImage() {
+				const statusDiv = document.getElementById("status");
+				statusDiv.innerHTML = "<div>Uploading...</div>";
+
+				const input = document.getElementById("imageInput");
+				const file = input.files[0];
+				const goodId = document.getElementById("goodId").value;
+
+				if (!file || !goodId) {
+					alert("Please select a file and enter a Good ID.");
+					statusDiv.innerHTML =
+						'<div class="error">Upload failed: No file or Good ID selected.</div>';
+					return;
+				}
+
+				addDebugInfo(
+					`Starting upload for Good ID: ${goodId}, File: ${file.name}`
+				);
+
+				const formData = new FormData();
+				formData.append("imageFile", file);
+
+				// Send the image to the server
+				fetch(`http://localhost:8080/image/${goodId}`, {
+					method: "POST",
+					body: formData,
+				})
+					.then((response) => {
+						if (!response.ok) {
+							throw new Error(
+								`Upload failed with status: ${response.status} - ${response.statusText}`
+							);
+						}
+						addDebugInfo(
+							`Upload successful for Good ID: ${goodId}`
+						);
+						return response.text();
+					})
+					.then(() => {
+						statusDiv.innerHTML =
+							'<div class="success">Upload successful!</div>';
+						// After the image is uploaded, load the image with cache-busting
+						setTimeout(() => loadImage(goodId), 500); // Small delay to ensure server processed the image
+					})
+					.catch((error) => {
+						console.error("Error uploading image:", error);
+						statusDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+						addDebugInfo(`Upload error: ${error.message}`);
+					});
+			}
+		</script>
+	</body>
 </html>
