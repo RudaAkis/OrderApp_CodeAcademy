@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload and Display Goods Image</title>
+</head>
+<body>
+    <h2>Upload Image for Good</h2>
+
+    <label for="goodId">Good ID:</label>
+    <input type="number" id="goodId" value="1"><br><br>
+
+    <input type="file" id="imageInput"><br><br>
+    <button onclick="uploadImage()">Upload</button>
+
+    <h2>Uploaded Image:</h2>
+    <img id="uploadedImage" src="" alt="Goods Image" width="200">
+
+    <script>
+        function uploadImage() {
+            const input = document.getElementById("imageInput");
+            const file = input.files[0];
+            const goodId = document.getElementById("goodId").value;
+
+            if (!file || !goodId) {
+                alert("Please select a file and enter a Good ID.");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("imageFile", file);  // Make sure this matches the @RequestParam in your controller
+
+            // Send the image to the server
+            fetch(`http://localhost:8080/image/${goodId}`, {
+                method: "POST",
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error("Upload failed");
+                }
+                return response.text();
+            })
+            .then(() => {
+                // After the image is uploaded, fetch and display the image
+                document.getElementById("uploadedImage").src = `http://localhost:8080/uploads/goods-${goodId}.jpg`;
+            })
+            .catch(error => {
+                console.error("Error uploading or fetching image:", error);
+            });
+        }
+    </script>
+</body>
+</html>
